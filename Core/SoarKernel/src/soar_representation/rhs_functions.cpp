@@ -819,10 +819,10 @@ Symbol* force_learn_rhs_function_code(agent* thisAgent, cons* args, void* /*user
                   RHS Deep copy recursive helper functions
 ====================================================================  */
 void recursive_deep_copy_helper(agent* thisAgent, Symbol* id_to_process, Symbol* parent_id,
-                                std::unordered_map<Symbol*, Symbol*>& processedSymbols);
+                                std::unordered_map<Symbol*, Symbol*>& processedSymbols, unsigned int level);
 
 void recursive_wme_copy(agent* thisAgent, Symbol* parent_id, wme* curwme,
-                        std::unordered_map<Symbol*, Symbol*>& processedSymbols)
+                        std::unordered_map<Symbol*, Symbol*>& processedSymbols, unsigned int level)
 {
 
     bool made_new_attr_symbol = false;
@@ -833,7 +833,7 @@ void recursive_wme_copy(agent* thisAgent, Symbol* parent_id, wme* curwme,
     Symbol* new_value = curwme->value;
 
     /* Handling the case where the attribute is an id symbol */
-    if (curwme->attr->is_sti())
+    if (curwme->attr->is_sti() && level != 1)
     {
         /* Have I already made a new identifier for this identifier */
         std::unordered_map<Symbol*, Symbol*>::iterator it = processedSymbols.find(curwme->attr);
@@ -849,11 +849,20 @@ void recursive_wme_copy(agent* thisAgent, Symbol* parent_id, wme* curwme,
             made_new_attr_symbol = true;
         }
 
-        recursive_deep_copy_helper(thisAgent, curwme->attr, new_attr, processedSymbols);
+        if (level == 0)
+        {
+            /* deep-copy */
+            recursive_deep_copy_helper(thisAgent, curwme->attr, new_attr, processedSymbols, 0);
+        }
+        else
+        {
+            /* decrease number of levels */
+            recursive_deep_copy_helper(thisAgent, curwme->attr, new_attr, processedSymbols, level - 1);
+        }
     }
 
     /* Handling the case where the value is an id symbol */
-    if (curwme->value->symbol_type == 1)
+    if (curwme->value->symbol_type == 1 && level != 1)
     {
         /* Have I already made a new identifier for this identifier */
         std::unordered_map<Symbol*, Symbol*>::iterator it = processedSymbols.find(curwme->value);
@@ -869,7 +878,16 @@ void recursive_wme_copy(agent* thisAgent, Symbol* parent_id, wme* curwme,
             made_new_value_symbol = true;
         }
 
-        recursive_deep_copy_helper(thisAgent, curwme->value, new_value, processedSymbols);
+        if (level == 0)
+        {
+            /* deep-copy */
+            recursive_deep_copy_helper(thisAgent, curwme->value, new_value, processedSymbols, 0);
+        }
+        else
+        {
+            /* decrease number of levels */
+            recursive_deep_copy_helper(thisAgent, curwme->value, new_value, processedSymbols, level - 1);
+        }
     }
 
     /* Making the new wme (Note just reusing the wme data structure, these wme's actually get converted into preferences later).*/
@@ -895,7 +913,7 @@ void recursive_wme_copy(agent* thisAgent, Symbol* parent_id, wme* curwme,
 }
 
 void recursive_deep_copy_helper(agent* thisAgent, Symbol* id_to_process, Symbol* parent_id,
-                                std::unordered_map<Symbol*, Symbol*>& processedSymbols)
+                                std::unordered_map<Symbol*, Symbol*>& processedSymbols, unsigned int level)
 {
     /* If this symbol has already been processed then ignore it and return */
     if (processedSymbols.find(id_to_process) != processedSymbols.end()) return;
@@ -908,22 +926,29 @@ void recursive_deep_copy_helper(agent* thisAgent, Symbol* id_to_process, Symbol*
         /* Iterating over the wmes in this slot */
         for (wme* curwme = curslot->wmes; curwme != 0; curwme = curwme->next)
         {
-            recursive_wme_copy(thisAgent, parent_id, curwme, processedSymbols);
+            recursive_wme_copy(thisAgent, parent_id, curwme, processedSymbols, level);
         }
     }
 
     /* Iterating over input wmes */
     for (wme* curwme = id_to_process->id->input_wmes; curwme != 0; curwme = curwme->next)
     {
-        recursive_wme_copy(thisAgent, parent_id, curwme, processedSymbols);
+        recursive_wme_copy(thisAgent, parent_id, curwme, processedSymbols, level);
     }
 }
 
 /* ====================================================================
                   RHS Deep copy function
 ====================================================================  */
-Symbol* deep_copy_rhs_function_code(agent* thisAgent, cons* args, void* /*user_data*/)
+
+static unsigned int deep_copy_rhs_function_userdata_all_levels = 0;
+static unsigned int deep_copy_rhs_function_userdata_one_level = 1;
+static unsigned int deep_copy_rhs_function_userdata_two_levels = 2;
+
+Symbol* deep_copy_rhs_function_code(agent* thisAgent, cons* args, void* user_data)
 {
+    /* Interpret user data as copy level */
+    unsigned int level = (user_data != 0) ? *static_cast<unsigned int*>(user_data) : 0;
 
     /* Getting the argument symbol */
     Symbol* baseid = static_cast<Symbol*>(args->first);
@@ -938,9 +963,10 @@ Symbol* deep_copy_rhs_function_code(agent* thisAgent, cons* args, void* /*user_d
     /* Now processing the wme's associated with the passed in symbol */
     std::unordered_map<Symbol*, Symbol*> processedSymbols;
     thisAgent->WM->glbDeepCopyWMEs.clear();
-    recursive_deep_copy_helper(thisAgent, baseid,  retval, processedSymbols);
+    recursive_deep_copy_helper(thisAgent, baseid,  retval, processedSymbols, level);
     return retval;
 }
+
 
 /* --------------------------------------------------------------------
                                 Count
@@ -1023,7 +1049,9 @@ void init_built_in_rhs_functions(agent* thisAgent)
 
     /* RHS functions that are more elaborate */
     add_rhs_function(thisAgent, thisAgent->symbolManager->make_str_constant("accept"), accept_rhs_function_code, 0, true, false, 0, false);
-    add_rhs_function(thisAgent, thisAgent->symbolManager->make_str_constant("deep-copy"), deep_copy_rhs_function_code, 1, true, false, 0, false);
+    add_rhs_function(thisAgent, thisAgent->symbolManager->make_str_constant("deep-copy"), deep_copy_rhs_function_code, 1, true, false, &deep_copy_rhs_function_userdata_all_levels, false);
+    add_rhs_function(thisAgent, thisAgent->symbolManager->make_str_constant("copy-one-level"), deep_copy_rhs_function_code, 1, true, false, &deep_copy_rhs_function_userdata_one_level, false);
+    add_rhs_function(thisAgent, thisAgent->symbolManager->make_str_constant("copy-two-levels"), deep_copy_rhs_function_code, 1, true, false, &deep_copy_rhs_function_userdata_two_levels, false);
     add_rhs_function(thisAgent, thisAgent->symbolManager->make_str_constant("ifeq"), ifeq_rhs_function_code, 4, true, false, 0, false);
 
     /* EBC Manager caches these rhs functions since it may re-use them many times */
@@ -1055,6 +1083,8 @@ void remove_built_in_rhs_functions(agent* thisAgent)
 
     remove_rhs_function(thisAgent, thisAgent->symbolManager->find_str_constant("accept"));
     remove_rhs_function(thisAgent, thisAgent->symbolManager->find_str_constant("deep-copy"));
+    remove_rhs_function(thisAgent, thisAgent->symbolManager->find_str_constant("copy-one-level"));
+    remove_rhs_function(thisAgent, thisAgent->symbolManager->find_str_constant("copy-two-levels"));
     remove_rhs_function(thisAgent, thisAgent->symbolManager->find_str_constant("ifeq"));
 
     remove_built_in_rhs_math_functions(thisAgent);
