@@ -59,9 +59,9 @@ cwiseInverse() const { return derived(); }
   *
   * \sa cwiseEqual(const MatrixBase<OtherDerived> &) const
   */
-inline const CwiseUnaryOp<std::binder1st<std::equal_to<Scalar> >, const Derived>
-cwiseEqual(const Scalar& s) const
+inline const auto cwiseEqual(const Scalar& s) const
+    -> CwiseUnaryOp<decltype(std::bind(std::equal_to<Scalar>(), std::placeholders::_2, s)), const Derived>
 {
-  return CwiseUnaryOp<std::binder1st<std::equal_to<Scalar> >,const Derived>
-          (derived(), std::bind1st(std::equal_to<Scalar>(), s));
+  return CwiseUnaryOp<decltype(std::bind(std::equal_to<Scalar>(), std::placeholders::_2, s)), const Derived>
+          (derived(), std::bind(std::equal_to<Scalar>(), std::placeholders::_2, s));
 }

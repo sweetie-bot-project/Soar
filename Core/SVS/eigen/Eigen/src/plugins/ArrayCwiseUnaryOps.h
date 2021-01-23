@@ -187,10 +187,10 @@ cube() const
 }
 
 #define EIGEN_MAKE_SCALAR_CWISE_UNARY_OP(METHOD_NAME,FUNCTOR) \
-  inline const CwiseUnaryOp<std::binder2nd<FUNCTOR<Scalar> >, const Derived> \
-  METHOD_NAME(const Scalar& s) const { \
-    return CwiseUnaryOp<std::binder2nd<FUNCTOR<Scalar> >, const Derived> \
-            (derived(), std::bind2nd(FUNCTOR<Scalar>(), s)); \
+  inline const auto METHOD_NAME(const Scalar& s) const \
+      -> CwiseUnaryOp<decltype(std::bind(FUNCTOR<Scalar>(), std::placeholders::_1, s)), const Derived> \
+  { \
+    return CwiseUnaryOp<decltype(std::bind(FUNCTOR<Scalar>(), std::placeholders::_1, s)), const Derived>(derived(), std::bind(FUNCTOR<Scalar>(), std::placeholders::_1, s)); \
   }
 
 EIGEN_MAKE_SCALAR_CWISE_UNARY_OP(operator==,  std::equal_to)
