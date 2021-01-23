@@ -259,7 +259,7 @@ void print_condition_list(agent* thisAgent, condition* conds,
 
             {
                 /* --- build and print attr/value test for condition c --- */
-                char temp[PRINT_CONDITION_LIST_TEMP_SIZE], *ch;
+                char temp[PRINT_CONDITION_LIST_TEMP_SIZE+1], *ch;
 
                 memset(temp, 0, PRINT_CONDITION_LIST_TEMP_SIZE);
                 ch = temp;

@@ -8798,9 +8798,9 @@ void xml_condition_list(agent* thisAgent, condition* conds,
 
             {
                 /* --- build and print attr/value test for condition c --- */
-                char temp[XML_CONDITION_LIST_TEMP_SIZE], *ch;
+                char temp[XML_CONDITION_LIST_TEMP_SIZE+1], *ch;
 
-                memset(temp, 0, XML_CONDITION_LIST_TEMP_SIZE);
+                memset(temp, 0, XML_CONDITION_LIST_TEMP_SIZE+1);
                 ch = temp;
                 //strncpy (ch, " ", XML_CONDITION_LIST_TEMP_SIZE - (ch - temp));
                 if (c->type == NEGATIVE_CONDITION)
