@@ -97,12 +97,6 @@ if java_parsing:
         interfaces, and anonymous inner classes."""
 
         def __init__(self, version=default_java_version):
-
-            if version not in ('1.1', '1.2', '1.3', '1.4', '1.5', '1.6', '1.7',
-                               '1.8', '5', '6', '9.0', '10.0', '11.0', '12.0'):
-                msg = "Java version %s not supported" % version
-                raise NotImplementedError(msg)
-
             self.version = version
             self.listClasses = []
             self.listOutputs = []
